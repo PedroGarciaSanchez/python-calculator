@@ -1,0 +1,78 @@
+pipeline {
+    agent any
+
+    stages {
+        stage('Get code') {
+            steps {
+                git "https://github.com/PedroGarciaSanchez/python-calculator.git"
+            }
+        }
+        stage('Build') {
+            steps {
+                echo "Eyyyesro es python. No hay que compilar nada"
+                echo WORKSPACE
+            }
+        }
+        //SOLUCION DE RUBEN
+        stage('Unit test') {
+            steps {
+                sh '/usr/local/bin/python3.9 -m pytest --junitxml=result-unit.xml test/unit'
+                //Ojo, esto es lo que dice Alfonso en el 27:34 del 2o video de jenkins, pero no me va
+                //Dice Alfonso en el foro: El acceso a cualquier ejecutable dentro de Jenkins está condicionado tanto a los permisos del propio usuario
+                //con el que corre Jenkins, como a las rutas habiltadas en el PATH. Todo aquello que no esté en el PATH
+                //deberá ejecutarse indicando su ruta absoluta
+                //junit 'result*.xml'
+            }
+        }
+        //SOLUCION DE RUBEN
+        stage('Rest test') {
+            steps {
+                 //OJO:hay que activar el entorno con ". entorno_python/bin/activate". el entorno est´á en /Users/pipi/Desktop/CURSO_DEVOPS/python-calculator
+                 
+                sh 'export FLASK_APP=/Users/pipi/Desktop/CURSO_DEVOPS/python-calculator/app/api.py && export FLASK_ENV=development && . /Users/pipi/Desktop/CURSO_DEVOPS/python-calculator/entorno_python/bin/activate && nohup flask run > logFlask.txt 2>&1 &'
+               
+               
+               
+                //sh '/usr/local/bin/python3.9 -m pytest --junitxml=result-rest.xml test/rest'
+               
+                //OJo, funciona, pero levantando antes el servidor de wiremock en local con java -jar wiremock-jre8-standalone-2.32.0.jar --port 9090 -v --root-dir ./wiremock
+                sh 'nohup java -jar /Users/pipi/Desktop/CURSO_DEVOPS/python-calculator/wiremock-jre8-standalone-2.32.0.jar --port 9090 -v --root-dir /Users/pipi/Desktop/CURSO_DEVOPS/python-calculator/wiremock > logWireMock.txt 2>&1 &'
+                sh 'sleep 5'
+               
+                //-v --root-dir ./wiremock
+                sh '/usr/local/bin/python3.9 -m pytest --junitxml=result-rest.xml test/rest'
+               
+               
+                //ASI LO TIENE ALFONSO:
+                //El problema de que se quede flask (o wiremock) impidiendo la ejecución del pipeline es debido a que no
+                //se ha lanzado la ejecución en background. En Windows se haría con el comando "start" como hemos visto
+                //en el pipeline
+                //original, mientras que en Linux se haría con el "&" como bien habéis indicado aquí arriba
+           
+            }
+        }
+        //SOLUCION DE IVAN
+        /*stage('Tests') {
+            parallel {
+                stage('Unit') {
+                    steps {
+                        echo "Realizando pruebas unitarias"
+                        sh 'apt-get update && apt-get install -y python3-pip && rm -rf /var/lib/apt/lists/*; pip install pytest'
+                        sh 'export PYTHONPATH=$WORKSPACE; py.test --junitxml=result-unit.xml test/unit'
+                        //procesaría todos los ficheros de la ruta
+                        junit 'result*.xml'
+                    }
+                }
+               
+            }
+        }*/
+        stage ('Results') {
+            steps {
+                // //procesa todos los ficheros de la ruta
+                junit 'result*.xml'
+            }
+        }
+       
+    }
+}
+
